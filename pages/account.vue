@@ -8,7 +8,11 @@
       <p>Server version: v{{ serverVersion }}</p>
     </div>
 
-    <ui-btn color="primary flex items-center justify-between gap-2 ml-auto text-base mt-8" @click="logout">{{ $strings.ButtonSwitchServerUser }}<span class="material-symbols" style="font-size: 1.1rem">logout</span></ui-btn>
+    <div class="mt-8">
+      <ui-btn @click="registerPasskey" class="w-full h-10 mb-4 bg-bg text-fg border border-fg/20">{{ $strings.ButtonRegisterPasskey || 'Register Passkey' }}</ui-btn>
+    </div>
+
+    <ui-btn color="primary flex items-center justify-between gap-2 ml-auto text-base mt-2" @click="logout">{{ $strings.ButtonSwitchServerUser }}<span class="material-symbols" style="font-size: 1.1rem">logout</span></ui-btn>
 
     <div class="flex justify-center items-center my-4 left-0 right-0 bottom-0 absolute">
       <p class="text-sm text-fg">{{ $strings.MessageReportBugsAndContribute }} <a class="underline" href="https://github.com/advplyr/audiobookshelf-app" target="_blank">GitHub</a></p>
@@ -24,6 +28,8 @@
 </template>
 
 <script>
+import { Browser } from '@capacitor/browser'
+
 export default {
   asyncData({ redirect, store }) {
     if (!store.state.socketConnected) {
@@ -58,6 +64,18 @@ export default {
       await this.$hapticsImpact()
       await this.$store.dispatch('user/logout')
       this.$router.push('/connect')
+    },
+    async registerPasskey() {
+      try {
+        await this.$hapticsImpact()
+        // We open the web client account page via login redirect
+        const token = this.serverConnectionConfig.token || this.user.token
+        const buildUrl = `${this.serverAddress}/login?accessToken=${token}&redirect=${encodeURIComponent('/account?passkey_register=true')}`
+        await Browser.open({ url: buildUrl })
+      } catch (error) {
+        console.error('Passkey registration error', error)
+        this.$toast.error(error.message || 'Failed to open browser for Passkey registration')
+      }
     }
   },
   mounted() {}

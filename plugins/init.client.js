@@ -329,8 +329,15 @@ export default ({ store, app }, inject) => {
    * @see https://capacitorjs.com/docs/apis/app#addlistenerappurlopen-
    * Listen for url open events for the app. This handles both custom URL scheme links as well as URLs your app handles
    */
-  App.addListener('appUrlOpen', (data) => {
+  App.addListener('appUrlOpen', async (data) => {
     eventBus.$emit('url-open', data.url)
+
+    if (data.url.startsWith('audiobookshelf://passkey')) {
+      try {
+        const { Browser } = await import('@capacitor/browser')
+        await Browser.close()
+      } catch (err) {}
+    }
   })
 }
 

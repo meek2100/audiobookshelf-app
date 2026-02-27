@@ -67,6 +67,7 @@
           </form>
           <div v-if="isLocalAuthEnabled && isOpenIDAuthEnabled" class="w-full h-px bg-fg/10 my-4" />
           <ui-btn v-if="isOpenIDAuthEnabled" :disabled="processing" class="h-10 w-full" @click="clickLoginWithOpenId">{{ oauth.buttonText }}</ui-btn>
+          <ui-btn :disabled="processing" class="h-10 w-full mt-2" @click="clickLoginWithPasskey">Login with Passkey</ui-btn>
         </template>
       </div>
 
@@ -254,6 +255,19 @@ export default {
         console.error('Error opening browser', error)
       }
     },
+    async clickLoginWithPasskey() {
+      if (!this.serverConfig.address) return
+
+      // For passkeys, we assume the server has a /login page that can process `passkey_login`
+      // and redirect to `audiobookshelf://passkey?token=...` upon success
+      const buildUrl = `${this.serverConfig.address}/login?passkey_login=true`
+
+      try {
+        await Browser.open({ url: buildUrl })
+      } catch (error) {
+        console.error('Error opening browser for passkey', error)
+      }
+    },
     /**
      * Requests the OAuth/OpenID URL from the backend server to open in browser
      *
@@ -366,7 +380,27 @@ export default {
         } else {
           console.warn(`[SSO] No code received`)
           this.$toast.error(`SSO: The response from the SSO Provider did not include a code (authentication error?)`)
+          this.error = 'Failed to authenticate with OpenID.'
         }
+      } else if (url.startsWith('audiobookshelf://passkey') || urlObj.pathname === '//passkey') {
+          // close browser regardless of success
+          try {
+             if (this.$platform === 'ios' || this.$platform === 'web') {
+               await Browser.close()
+             }
+          } catch(err) {}
+
+          // audiobookshelf://passkey?token...
+          const token = urlObj.searchParams.get('token')
+          if (token) {
+             this.serverConfig.token = token
+             const payload = await this.authenticateToken()
+             if (payload) {
+                this.setUserAndConnection(payload)
+             } else {
+                this.error = 'Failed to authenticate with Passkey.'
+             }
+          }
       } else {
         console.warn(`[ServerConnectForm] appUrlOpen: Unknown url: ${url} - host: ${urlObj.hostname} - path: ${urlObj.pathname}`)
       }
